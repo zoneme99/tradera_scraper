@@ -20,7 +20,6 @@ def append_links(soup, pattern, list_object):
         if pattern.match(x.get_text(strip=True)):
             list_object.append(x.get("href"))
 
-
 def text_search(soup, pattern):
     box = soup.find(class_="text-inter text-hyphenate undefined")
     if pattern.match(box.get_text(strip=True)):
@@ -69,13 +68,10 @@ def sort_list(list, sortkey):
         raise ValueError("sortkey out of range")
 
 
+#Section Functions
 
-exit = False
+def gather_inputs():
 
-while not exit:
-    links = []
-    outputlinks = []
-    data = []
     print("Welcome to Tradera_Search!")
     print("Beware that if you leave title empty it can increase search time(if what you search for got many pages)")
     while True:
@@ -99,7 +95,7 @@ while not exit:
     else:
         textpattern = re.compile('.*', re.IGNORECASE)
     os.system('cls')
-    
+
     while True:
         while True:
             try:
@@ -113,36 +109,46 @@ while not exit:
         else:
             os.system('cls')
             print("Wrong input! Just one number between 0-2")
-    
+
+    return [urlsearch, titlepattern, textpattern, sortkey]
+
+def gather_links(inputs):
     print("Starting Search Process!")
 
-    url = "https://www.tradera.com/search?q="+urlsearch
+    links = []
+    url = "https://www.tradera.com/search?q="+inputs[0]
     soup = soup_maker(url)
 
-    append_links(soup, titlepattern, links)
+    append_links(soup, inputs[1], links)
     page = 2
     while True:
         try:
             soup = soup_maker("https://www.tradera.com"+next_page(soup, page))
-            append_links(soup, titlepattern, links)
+            append_links(soup, inputs[1], links)
             print("On Page "+str(page))
             page += 1
         except AttributeError:
             break
     print("Found {} Links!".format(len(links)))
+    return links
 
+def filter_links(inputs, links):
+    outputlinks = []
+    data = []
     for index, link in enumerate(links):
         print("filtering link {} out of {}".format(index, len(links)))
         soup = soup_maker("https://www.tradera.com"+link)
-        if text_search(soup, textpattern):
+        if text_search(soup, inputs[2]):
             outputlinks.append(link)
             include_data(soup, data)
 
     item_list = bake(outputlinks, data)
-    item_list = sort_list(item_list, sortkey)
+    item_list = sort_list(item_list, inputs[3])
     os.system('cls')
-    
-    if len(outputlinks) > 0:
+    return item_list
+
+def print_output(filtered_links):
+    if len(filtered_links) > 0:
 
         string = ""
         for _ in range(90+12+30+100):
@@ -169,7 +175,7 @@ while not exit:
             string += "-"
         print(string)
 
-        for name, prize, date, links in item_list:
+        for name, prize, date, links in filtered_links:
             if date.year == 1999 and date.month == 6 and date.day == 23:
                 tmpdate = "BUY NOW"
             else: 
@@ -196,12 +202,13 @@ while not exit:
             print(string)
     else:
         input("No items found, press enter to continue")
-    
+
+def exit_restart(bool):
     while True:
         try:
             num = int(input("enter 0 for exit, enter 1 for new search: "))
             if num == 0:
-                exit = not exit
+                bool = not bool
                 break
             elif num == 1:
                 break
@@ -211,3 +218,16 @@ while not exit:
         except:
             os.system('cls')
             print("stop messing around")
+
+exit = False
+while not exit:
+    
+    inputs = gather_inputs()
+    
+    links = gather_links(inputs)
+
+    filtered_links = filter_links(inputs, links)
+
+    print_output(filtered_links)
+    
+    exit_restart(exit)

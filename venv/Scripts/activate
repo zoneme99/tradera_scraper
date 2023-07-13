@@ -38,7 +38,7 @@ deactivate () {
 # unset irrelevant variables
 deactivate nondestructive
 
-VIRTUAL_ENV="C:\Users\jonat\Documents\Python_Projects\tradera_scraper\venv"
+VIRTUAL_ENV="C:\Users\nyttk\OneDrive\Dokument\Python_Projects\tradera_scraper\venv"
 export VIRTUAL_ENV
 
 _OLD_VIRTUAL_PATH="$PATH"

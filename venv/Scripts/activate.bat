@@ -8,7 +8,7 @@ if defined _OLD_CODEPAGE (
     "%SystemRoot%\System32\chcp.com" 65001 > nul
 )
 
-set VIRTUAL_ENV=C:\Users\jonat\Documents\Python_Projects\tradera_scraper\venv
+set VIRTUAL_ENV=C:\Users\nyttk\OneDrive\Dokument\Python_Projects\tradera_scraper\venv
 
 if not defined PROMPT set PROMPT=$P$G
 
