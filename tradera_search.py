@@ -3,6 +3,8 @@ import requests
 import re
 import os
 from datetime import datetime
+import webbrowser
+
 
 def soup_maker(newurl):
     url = newurl
@@ -14,11 +16,29 @@ def next_page(soup, iterator):
     numpages = soup.find("a", {"class": "page-link"}, string=str(iterator))
     return numpages.get("href")
 
-def append_links(soup, pattern, list_object):
+def append_links(soup, pattern, textfilter, list_object):
     links = soup.find_all("a", class_="text-truncate-two-lines")
-    for x in links:
-        if pattern.match(x.get_text(strip=True)):
-            list_object.append(x.get("href"))
+
+    prizes = soup.find_all("span", attrs={"data-testid": "price"})
+    dates = soup.find_all("span", {"class":["item-card-animate-time ml-auto text-nowrap size-oslo text-gray-600", "text-nowrap pr-1"]})
+    for index, link in enumerate(links):
+        if textfilter == True:
+            textsoup = soup_maker("https://www.tradera.com"+link.get("href"))
+            if not text_search(textsoup, inputs[2]):
+                continue
+        if pattern.match(link.get_text(strip=True)):
+            #reformat prize
+            string = re.sub('\s+', '',prizes[index].string)
+            string = string.replace("kr","")
+            prize = int(string)
+            if dates[index].string == "Köp nu":
+                tmpdate = datetime(1999,6,23)
+            else:
+                tmpdate = datetime.strptime(dates[index].string, '%d %b %H:%M')
+                today = datetime.today()
+                tmpdate = tmpdate.replace(year=today.year)
+            list_object.append([link.get("title"), prize, tmpdate, "https://www.tradera.com"+link.get("href")])
+    return list_object
 
 def text_search(soup, pattern):
     box = soup.find(class_="text-inter text-hyphenate undefined")
@@ -73,7 +93,6 @@ def sort_list(list, sortkey):
 def gather_inputs():
 
     print("Welcome to Tradera_Search!")
-    print("Beware that if you leave title empty it can increase search time(if what you search for got many pages)")
     while True:
         urlsearch = input("What do you search for: ")
         if len(urlsearch) > 0:
@@ -89,12 +108,31 @@ def gather_inputs():
         titlepattern = re.compile('.*', re.IGNORECASE)
     os.system('cls')
 
-    textpart = input("what should be included in text: ")
-    if len(textpart) > 0:
-        textpattern = re.compile('.*'+textpart+'.*', re.IGNORECASE)
+    while True:
+        ans = input("Would you like a descriptionfilter, y/n?(default:no, more efficient)")
+        if ans == "n" or len(ans) == 0:
+            os.system('cls')
+            textfilter = False
+            break
+        elif ans == "y":
+            os.system('cls')
+            textfilter = True
+            break
+        else:
+            os.system('cls')
+            print("Wrong input")
+            
+
+
+    if textfilter == True:
+        textpart = input("what should be included in text: ")
+        if len(textpart) > 0:
+            textpattern = re.compile('.*'+textpart+'.*', re.IGNORECASE)
+        else:
+            textpattern = re.compile('.*', re.IGNORECASE)
+        os.system('cls')
     else:
-        textpattern = re.compile('.*', re.IGNORECASE)
-    os.system('cls')
+        textpattern = None
 
     while True:
         while True:
@@ -110,7 +148,7 @@ def gather_inputs():
             os.system('cls')
             print("Wrong input! Just one number between 0-2")
 
-    return [urlsearch, titlepattern, textpattern, sortkey]
+    return [urlsearch, titlepattern, textpattern, sortkey, textfilter]
 
 def gather_links(inputs):
     print("Starting Search Process!")
@@ -119,20 +157,22 @@ def gather_links(inputs):
     url = "https://www.tradera.com/search?q="+inputs[0]
     soup = soup_maker(url)
 
-    append_links(soup, inputs[1], links)
+    print("On Page 1")
+    links = append_links(soup, inputs[1], inputs[4], links)
     page = 2
     while True:
         try:
-            soup = soup_maker("https://www.tradera.com"+next_page(soup, page))
-            append_links(soup, inputs[1], links)
             print("On Page "+str(page))
+            soup = soup_maker("https://www.tradera.com"+next_page(soup, page))
+            links = append_links(soup, inputs[1], inputs[4], links)
             page += 1
+            print("Total {} Links Found!".format(len(links)))
         except AttributeError:
             break
-    print("Found {} Links!".format(len(links)))
+    links = sort_list(links, inputs[3])
     return links
 
-def filter_links(inputs, links):
+
     outputlinks = []
     data = []
     for index, link in enumerate(links):
@@ -151,7 +191,7 @@ def print_output(filtered_links):
     if len(filtered_links) > 0:
 
         string = ""
-        for _ in range(90+12+30+100):
+        for _ in range(90+12+20):
             string += "-"
         print(string)
         
@@ -164,24 +204,21 @@ def print_output(filtered_links):
         for _ in range((90+12)-length):
                 string = string+" "
         string += "|SLUTDATUM|"
-        length = len(string)
-        for _ in range((90+12+30)-length):
-                string = string+" "
-        string += "|LÄNK|"
+
         print(string)
 
         string = ""
-        for _ in range(90+12+30+100):
+        for _ in range(90+12+20):
             string += "-"
         print(string)
 
-        for name, prize, date, links in filtered_links:
+        for index,[name, prize, date, links] in enumerate(filtered_links):
             if date.year == 1999 and date.month == 6 and date.day == 23:
                 tmpdate = "BUY NOW"
             else: 
                 tmpdate = date
             string = ""
-            string = string+"|"+name+"|"
+            string += "|"+str(index)+"|"+name+"|"
             length = len(string)
             if length > 90:
                 length -= 50 
@@ -192,26 +229,38 @@ def print_output(filtered_links):
             length = len(string)
             for _ in range((90+12)-length):
                 string = string+" "
-            
-            string = string+"|{}|".format(tmpdate)
-            length = len(string)
-            for _ in range((90+12+30)-length):
-                string = string+" "
-            
-            string = string+"|{}|".format(links)
+            if type(tmpdate) == type("string"):
+                string += "|"+tmpdate+"|"
+            else:
+                string = string+"|{}-{}-{} {}:{}|".format(tmpdate.year,tmpdate.month,tmpdate.day,tmpdate.hour,tmpdate.minute)
             print(string)
     else:
         input("No items found, press enter to continue")
 
-def exit_restart(bool):
+def idle(bool, links):
+    if len(links) > 0:
+        while True:
+            try:
+                num = input("Insert assigned number for item to open url, write exit to proceed: ")
+                if num == "exit":
+                    break
+                num = int(num)
+                if num > len(links)-1 or num < 0:
+                    print("Out of index")
+                    continue
+            except ValueError:
+                print("No valid input, test again")
+            
+            webbrowser.open(links[num][3])
+
+            
     while True:
         try:
             num = int(input("enter 0 for exit, enter 1 for new search: "))
             if num == 0:
-                bool = not bool
-                break
+                return not bool
             elif num == 1:
-                break
+                return bool
             else:
                 os.system('cls')
                 print("Can only take in 0 or 1")
@@ -226,8 +275,7 @@ while not exit:
     
     links = gather_links(inputs)
 
-    filtered_links = filter_links(inputs, links)
-
-    print_output(filtered_links)
+    print_output(links)
     
-    exit_restart(exit)
+    exit = idle(exit, links)
+
