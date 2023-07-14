@@ -47,36 +47,6 @@ def text_search(soup, pattern):
     else:
         return False
     
-def include_data(soup, list_object):
-
-    box = soup.find("h1", id="view-item-main")
-    itemname = box.get_text(strip=True)
-    
-    if soup.find("span", class_="bid-details-amount") is None:
-        box = soup.find("span", class_="animate-on-value-change_animate-on-value-change__sG4yu")
-    else:
-        box = soup.find("span", class_="bid-details-amount")
-    string = re.sub('\s+', '',box.string)
-    string = string.replace("kr","")
-    prize = int(string)
-
-    if soup.find("p",class_="bid-details-time-title") is not None:
-        box = soup.find("p",class_="bid-details-time-title")
-        string = box.get_text(strip=True).replace("Avslutas", "")
-        dateobj = datetime.strptime(string, '%d %b %H:%M')
-        dateobj = dateobj.replace(year=datetime.today().year)
-    else:
-        dateobj = datetime(1999,6,23)
-    
-    list_object.append([itemname, prize, dateobj])
-    
-def bake(links, data):
-    baked_list = []
-    for index, [name, prize, date] in enumerate(data):
-
-        baked_list.append([name, prize, date, "https://www.tradera.com"+links[index]])
-    return baked_list
-
 def sort_list(list, sortkey):
     if sortkey == 0: #Relevans
         return list
@@ -171,21 +141,6 @@ def gather_links(inputs):
             break
     links = sort_list(links, inputs[3])
     return links
-
-
-    outputlinks = []
-    data = []
-    for index, link in enumerate(links):
-        print("filtering link {} out of {}".format(index, len(links)))
-        soup = soup_maker("https://www.tradera.com"+link)
-        if text_search(soup, inputs[2]):
-            outputlinks.append(link)
-            include_data(soup, data)
-
-    item_list = bake(outputlinks, data)
-    item_list = sort_list(item_list, inputs[3])
-    os.system('cls')
-    return item_list
 
 def print_output(filtered_links):
     if len(filtered_links) > 0:
